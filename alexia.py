@@ -94,7 +94,7 @@ async def play_next(ctx):
 
         source = discord.FFmpegPCMAudio(
             audio_url,
-            executable=FFMPEG_PATH
+            executable="ffmpeg"
         )
 
         vc = ctx.voice_client

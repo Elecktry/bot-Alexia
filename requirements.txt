@@ -1,4 +1,4 @@
-discord.py
+discord.py[voices]
 python-dotenv
 yt-dlp
 PyNaCl

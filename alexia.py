@@ -34,6 +34,9 @@ YTDL_OPTIONS = {
         'youtube': {
             'player_client': ['android']
         }
+    },
+    'http_headers': {
+        'User-Agent': 'Mozilla/5.0'
     }
 }
 

@@ -112,7 +112,7 @@ async def play_next(ctx):
         await play_next(ctx)
         return
 
-    source = discord.FFmpegPCMAudio(audio_url, executable="ffmpeg")
+    source = discord.FFmpegPCMAudio(audio_url, executable="/usr/bin/ffmpeg")
 
     vc = ctx.voice_client
     vc.play(source, after=lambda e: bot.loop.create_task(play_next(ctx)))

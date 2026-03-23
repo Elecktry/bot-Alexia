@@ -5,6 +5,12 @@ from dotenv import load_dotenv
 import os
 import yt_dlp
 import random
+import logging
+import warnings
+
+# ===== LIMPAR WARNINGS =====
+warnings.filterwarnings("ignore")
+logging.getLogger("discord").setLevel(logging.ERROR)
 
 # ===== TOKEN =====
 load_dotenv()
@@ -92,10 +98,10 @@ async def play_next(ctx):
             thumbnail = info.get('thumbnail')
 
             if not audio_url:
-                raise Exception("Sem URL de áudio")
+                raise Exception("Sem URL")
 
     except Exception:
-        await ctx.send("❌ Falha ao tocar, tentando próxima...")
+        await ctx.send("❌ Falha, tentando próxima...")
         await play_next(ctx)
         return
 
@@ -120,9 +126,7 @@ async def play_next(ctx):
     if thumbnail:
         embed.set_thumbnail(url=thumbnail)
 
-    view = MusicControls(vc)
-
-    await ctx.send(embed=embed, view=view)
+    await ctx.send(embed=embed, view=MusicControls(vc))
 
 # ===== EVENT =====
 @bot.event
@@ -182,7 +186,7 @@ async def fila(ctx):
     else:
         await ctx.send("Fila vazia!")
 
-# ===== MONSTERI 🥤 =====
+# ===== MONSTER 🥤 =====
 @bot.event
 async def on_message(message):
     if message.author.bot:

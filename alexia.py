@@ -27,17 +27,12 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 FFMPEG_PATH = "C:/Users/Ezequiel da gaby/Downloads/ffmpeg/ffmpeg/bin/ffmpeg.exe"
 
 YTDL_OPTIONS = {
-    'format': 'bestaudio[ext=m4a]/bestaudio/best',
+    'format': 'bestaudio',
     'noplaylist': True,
     'quiet': True,
-    'extractor_args': {
-        'youtube': {
-            'player_client': ['android']
-        }
-    },
-    'http_headers': {
-        'User-Agent': 'Mozilla/5.0'
-    }
+    'no_warnings': True,
+    'default_search': 'ytsearch',
+    'source_address': '0.0.0.0'
 }
 
 queue = []

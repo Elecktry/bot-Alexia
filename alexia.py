@@ -29,9 +29,8 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # ===== CONFIG ANTI BLOQUEIO =====
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
-    'noplaylist': True,
     'quiet': True,
-    'no_warnings': True,
+    'noplaylist': True,
     'default_search': 'ytsearch1',
     'source_address': '0.0.0.0',
 
@@ -47,7 +46,6 @@ YTDL_OPTIONS = {
         'User-Agent': 'Mozilla/5.0'
     }
 }
-
 # ===== FILA =====
 queue = []
 loop_mode = False
@@ -82,9 +80,6 @@ async def play_next(ctx):
 
     url = queue.pop(0)
 
-    if loop_mode:
-        queue.append(url)
-
     try:
         with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -95,43 +90,43 @@ async def play_next(ctx):
             formats = info.get('formats', [])
 
             audio_url = None
+
+            # tenta pegar melhor áudio possível
             for f in formats:
-                if f.get('acodec') != 'none':
-                    audio_url = f.get('url')
+                if f.get('acodec') != 'none' and f.get('url'):
+                    audio_url = f['url']
                     break
 
             if not audio_url:
-                raise Exception("Sem áudio")
+                raise Exception("Sem áudio disponível")
 
             title = info.get('title', 'Desconhecido')
-            duration = info.get('duration', 0)
-            thumbnail = info.get('thumbnail')
 
-    except Exception:
-        await ctx.send("❌ Falha, pulando...")
+    except Exception as e:
+        print("ERRO YOUTUBE:", e)
+
+        # 🔥 fallback automático (não trava o bot)
+        fallback = [
+            "ytsearch1:phonk",
+            "ytsearch1:trap brasileiro",
+            "ytsearch1:funk pesado"
+        ]
+
+        queue.insert(0, random.choice(fallback))
+
+        await ctx.send("⚠️ YouTube bloqueou, tentando outra música...")
         await play_next(ctx)
         return
 
-    source = discord.FFmpegPCMAudio(audio_url, executable="/usr/bin/ffmpeg")
+    source = discord.FFmpegPCMAudio(
+        audio_url,
+        executable="/usr/bin/ffmpeg"
+    )
 
     vc = ctx.voice_client
     vc.play(source, after=lambda e: bot.loop.create_task(play_next(ctx)))
 
-    mins, secs = divmod(duration, 60)
-
-    embed = discord.Embed(
-        title="🎶 Tocando Agora",
-        description=f"**{title}**",
-        color=discord.Color.purple()
-    )
-
-    embed.add_field(name="⏱️", value=f"{mins}:{secs:02d}")
-
-    if thumbnail:
-        embed.set_thumbnail(url=thumbnail)
-
-    await ctx.send(embed=embed, view=MusicControls(vc))
-
+    await ctx.send(f"🎶 Tocando: **{title}**")
 # ===== EVENT =====
 @bot.event
 async def on_ready():

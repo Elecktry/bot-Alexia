@@ -8,7 +8,7 @@ import random
 import logging
 import warnings
 
-# ===== LIMPAR WARNINGS =====
+# ===== LIMPAR LOG =====
 warnings.filterwarnings("ignore")
 logging.getLogger("discord").setLevel(logging.ERROR)
 
@@ -26,7 +26,7 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# ===== CONFIG YTDLP (ANTI BLOQUEIO) =====
+# ===== CONFIG ANTI BLOQUEIO =====
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
@@ -34,11 +34,15 @@ YTDL_OPTIONS = {
     'no_warnings': True,
     'default_search': 'ytsearch1',
     'source_address': '0.0.0.0',
+
+    'geo_bypass': True,
+
     'extractor_args': {
         'youtube': {
-            'player_client': ['web']
+            'player_client': ['android', 'web']
         }
     },
+
     'http_headers': {
         'User-Agent': 'Mozilla/5.0'
     }
@@ -47,7 +51,6 @@ YTDL_OPTIONS = {
 # ===== FILA =====
 queue = []
 loop_mode = False
-current_song = None
 
 # ===== BOTÕES =====
 class MusicControls(View):
@@ -74,13 +77,10 @@ class MusicControls(View):
 
 # ===== TOCAR =====
 async def play_next(ctx):
-    global current_song
-
     if not queue:
         return
 
     url = queue.pop(0)
-    current_song = url
 
     if loop_mode:
         queue.append(url)
@@ -92,23 +92,27 @@ async def play_next(ctx):
             if 'entries' in info:
                 info = info['entries'][0]
 
-            audio_url = info.get('url')
+            formats = info.get('formats', [])
+
+            audio_url = None
+            for f in formats:
+                if f.get('acodec') != 'none':
+                    audio_url = f.get('url')
+                    break
+
+            if not audio_url:
+                raise Exception("Sem áudio")
+
             title = info.get('title', 'Desconhecido')
             duration = info.get('duration', 0)
             thumbnail = info.get('thumbnail')
 
-            if not audio_url:
-                raise Exception("Sem URL")
-
     except Exception:
-        await ctx.send("❌ Falha, tentando próxima...")
+        await ctx.send("❌ Falha, pulando...")
         await play_next(ctx)
         return
 
-    source = discord.FFmpegPCMAudio(
-        audio_url,
-        executable="ffmpeg"
-    )
+    source = discord.FFmpegPCMAudio(audio_url, executable="ffmpeg")
 
     vc = ctx.voice_client
     vc.play(source, after=lambda e: bot.loop.create_task(play_next(ctx)))
@@ -121,7 +125,7 @@ async def play_next(ctx):
         color=discord.Color.purple()
     )
 
-    embed.add_field(name="⏱️ Duração", value=f"{mins}:{secs:02d}")
+    embed.add_field(name="⏱️", value=f"{mins}:{secs:02d}")
 
     if thumbnail:
         embed.set_thumbnail(url=thumbnail)
@@ -131,7 +135,7 @@ async def play_next(ctx):
 # ===== EVENT =====
 @bot.event
 async def on_ready():
-    print(f"🔥 Bot online: {bot.user}")
+    print(f"🔥 Online: {bot.user}")
 
 # ===== PLAY =====
 @bot.command()
@@ -148,7 +152,7 @@ async def play(ctx, *, search):
 
     queue.append(search)
 
-    await ctx.send(f"➕ Adicionado: {search}")
+    await ctx.send(f"➕ {search}")
 
     if not ctx.voice_client.is_playing():
         await play_next(ctx)
@@ -158,7 +162,7 @@ async def play(ctx, *, search):
 async def skip(ctx):
     if ctx.voice_client:
         ctx.voice_client.stop()
-        await ctx.send("⏭️ Pulando...")
+        await ctx.send("⏭️ Pulando")
 
 # ===== PARAR =====
 @bot.command()
@@ -166,27 +170,25 @@ async def parar(ctx):
     queue.clear()
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
-        await ctx.send("👋 Sai do canal")
+        await ctx.send("👋 Sai")
 
 # ===== LOOP =====
 @bot.command()
 async def loop(ctx):
     global loop_mode
     loop_mode = not loop_mode
-    await ctx.send(f"🔁 Loop {'ativado' if loop_mode else 'desativado'}")
+    await ctx.send(f"🔁 Loop {'ON' if loop_mode else 'OFF'}")
 
 # ===== FILA =====
 @bot.command()
 async def fila(ctx):
     if queue:
-        embed = discord.Embed(title="📜 Fila", color=discord.Color.blue())
-        for i, music in enumerate(queue[:10], start=1):
-            embed.add_field(name=f"{i}.", value=music, inline=False)
-        await ctx.send(embed=embed)
+        msg = "\n".join(queue[:10])
+        await ctx.send(f"📜 Fila:\n{msg}")
     else:
-        await ctx.send("Fila vazia!")
+        await ctx.send("Fila vazia")
 
-# ===== MONSTER 🥤 =====
+# ===== MONSTER =====
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -196,24 +198,22 @@ async def on_message(message):
 
     if "alexia abrir lata" in content:
         if not message.author.voice:
-            await message.channel.send("Entra no voice primeiro!")
+            await message.channel.send("Entra no voice!")
             return
 
         if not message.guild.voice_client:
             await message.author.voice.channel.connect()
 
-        monster_songs = [
+        queue.clear()
+        queue.append(random.choice([
             "ytsearch1:phonk pesado",
             "ytsearch1:trap brasileiro",
             "ytsearch1:funk mandela"
-        ]
-
-        queue.clear()
-        queue.append(random.choice(monster_songs))
+        ]))
 
         ctx = await bot.get_context(message)
 
-        await message.channel.send("🥤 *PSSHHH* Alexia abriu a Monster 😈")
+        await message.channel.send("🥤 *PSSHHH* MONSTER ABERTA 😈")
 
         if not message.guild.voice_client.is_playing():
             await play_next(ctx)

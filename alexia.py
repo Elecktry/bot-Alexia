@@ -3,14 +3,11 @@ from discord.ext import commands
 from discord.ui import Button, View
 from dotenv import load_dotenv
 import os
-from pathlib import Path
 import yt_dlp
 import random
 
 # ===== TOKEN =====
-env_path = Path(__file__).parent / ".env"
-load_dotenv(dotenv_path=env_path)
-
+load_dotenv()
 TOKEN = os.getenv("TOKEN")
 
 if not TOKEN:
@@ -23,18 +20,25 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# ===== CONFIG =====
-FFMPEG_PATH = "C:/Users/Ezequiel da gaby/Downloads/ffmpeg/ffmpeg/bin/ffmpeg.exe"
-
+# ===== CONFIG YTDLP (ANTI BLOQUEIO) =====
 YTDL_OPTIONS = {
-    'format': 'bestaudio',
+    'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
-    'default_search': 'ytsearch',
-    'source_address': '0.0.0.0'
+    'default_search': 'ytsearch1',
+    'source_address': '0.0.0.0',
+    'extractor_args': {
+        'youtube': {
+            'player_client': ['web']
+        }
+    },
+    'http_headers': {
+        'User-Agent': 'Mozilla/5.0'
+    }
 }
 
+# ===== FILA =====
 queue = []
 loop_mode = False
 current_song = None
@@ -66,58 +70,64 @@ class MusicControls(View):
 async def play_next(ctx):
     global current_song
 
-    if queue:
-        url = queue.pop(0)
-        current_song = url
+    if not queue:
+        return
 
-        if loop_mode:
-            queue.insert(0, url)
+    url = queue.pop(0)
+    current_song = url
 
-        try:
-            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-                info = ydl.extract_info(url, download=False)
+    if loop_mode:
+        queue.append(url)
 
-                if 'entries' in info:
-                    info = info['entries'][0]
+    try:
+        with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+            info = ydl.extract_info(url, download=False)
 
-                audio_url = info['url']
-                title = info.get('title', 'Desconhecido')
-                duration = info.get('duration', 0)
-                thumbnail = info.get('thumbnail')
+            if 'entries' in info:
+                info = info['entries'][0]
 
-        except Exception as e:
-            await ctx.send("❌ Não consegui tocar essa música, tentando próxima...")
-            await play_next(ctx)
-            return
+            audio_url = info.get('url')
+            title = info.get('title', 'Desconhecido')
+            duration = info.get('duration', 0)
+            thumbnail = info.get('thumbnail')
 
-        source = discord.FFmpegPCMAudio(
-            audio_url,
-            executable="ffmpeg"
-        )
+            if not audio_url:
+                raise Exception("Sem URL de áudio")
 
-        vc = ctx.voice_client
-        vc.play(source, after=lambda e: bot.loop.create_task(play_next(ctx)))
+    except Exception:
+        await ctx.send("❌ Falha ao tocar, tentando próxima...")
+        await play_next(ctx)
+        return
 
-        mins, secs = divmod(duration, 60)
+    source = discord.FFmpegPCMAudio(
+        audio_url,
+        executable="ffmpeg"
+    )
 
-        embed = discord.Embed(
-            title="🎶 Tocando Agora",
-            description=f"**{title}**",
-            color=discord.Color.purple()
-        )
+    vc = ctx.voice_client
+    vc.play(source, after=lambda e: bot.loop.create_task(play_next(ctx)))
 
-        embed.add_field(name="⏱️ Duração", value=f"{mins}:{secs:02d}")
-        if thumbnail:
-            embed.set_thumbnail(url=thumbnail)
+    mins, secs = divmod(duration, 60)
 
-        view = MusicControls(vc)
+    embed = discord.Embed(
+        title="🎶 Tocando Agora",
+        description=f"**{title}**",
+        color=discord.Color.purple()
+    )
 
-        await ctx.send(embed=embed, view=view)
+    embed.add_field(name="⏱️ Duração", value=f"{mins}:{secs:02d}")
+
+    if thumbnail:
+        embed.set_thumbnail(url=thumbnail)
+
+    view = MusicControls(vc)
+
+    await ctx.send(embed=embed, view=view)
 
 # ===== EVENT =====
 @bot.event
 async def on_ready():
-    print(f"🔥 Bot lendário online: {bot.user}")
+    print(f"🔥 Bot online: {bot.user}")
 
 # ===== PLAY =====
 @bot.command()
@@ -130,7 +140,7 @@ async def play(ctx, *, search):
         await ctx.author.voice.channel.connect()
 
     if "http" not in search:
-        search = f"ytsearch:{search}"
+        search = f"ytsearch1:{search}"
 
     queue.append(search)
 
@@ -161,14 +171,6 @@ async def loop(ctx):
     loop_mode = not loop_mode
     await ctx.send(f"🔁 Loop {'ativado' if loop_mode else 'desativado'}")
 
-# ===== VOLUME =====
-@bot.command()
-async def volume(ctx, vol: int):
-    if ctx.voice_client and ctx.voice_client.source:
-        ctx.voice_client.source = discord.PCMVolumeTransformer(ctx.voice_client.source)
-        ctx.voice_client.source.volume = vol / 100
-        await ctx.send(f"🔊 Volume: {vol}%")
-
 # ===== FILA =====
 @bot.command()
 async def fila(ctx):
@@ -197,9 +199,9 @@ async def on_message(message):
             await message.author.voice.channel.connect()
 
         monster_songs = [
-            "ytsearch:phonk pesado",
-            "ytsearch:trap brasileiro",
-            "ytsearch:funk mandela",
+            "ytsearch1:phonk pesado",
+            "ytsearch1:trap brasileiro",
+            "ytsearch1:funk mandela"
         ]
 
         queue.clear()
@@ -207,7 +209,7 @@ async def on_message(message):
 
         ctx = await bot.get_context(message)
 
-        await message.channel.send("🥤 *PSSSHHHH* Alexia abriu a Monster 😈")
+        await message.channel.send("🥤 *PSSHHH* Alexia abriu a Monster 😈")
 
         if not message.guild.voice_client.is_playing():
             await play_next(ctx)

@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["ffmpeg", "libsodium"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python alexia.py"

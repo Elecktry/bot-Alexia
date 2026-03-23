@@ -1,10 +1,20 @@
-FROM python:3.11
+FROM python:3.11-slim
 
-RUN apt update && apt install -y ffmpeg libsodium-dev
+# dependências do sistema
+RUN apt update && apt install -y \
+    ffmpeg \
+    libsodium-dev \
+    gcc \
+    python3-dev \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY . .
 
-RUN pip install -r requirements.txt
+# força instalação limpa
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+RUN python -c "import nacl; print('PyNaCl OK')"
 
 CMD ["python", "alexia.py"]
